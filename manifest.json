@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "Phab Standup",
+  "version": "1.0.1",
+  "description": "Get your phab tickets for geekbot standup in 1 click",
+  "author": "Ian Ishmael C. Oderon",
+  "icons": {
+    "128": "standup.png"
+  },
+  "browser_action": {
+    "default_title": "Phab Standup"
+  },
+  "permissions": ["activeTab"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.splitmedialabs.com/*"],
+      "js": ["content.js"],
+      "css": ["style.css"]
+    }
+  ]
+}
