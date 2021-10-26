@@ -1,7 +1,7 @@
 let isInit = false;
 const arr = [];
 let tickets = [];
-let geekbot = ``;
+let geekbot = '';
 const FORCE_USERNAME = '';
 
 function setupHTML() {
@@ -98,7 +98,6 @@ function init() {
       value.forEach(item => {
         html += item + '<br />';
       });
-
       phabStandupContent.innerHTML = html;
     }
   }
@@ -111,7 +110,7 @@ function init() {
     tickets = [];
     geekbot = '';
     renderContent('');
-    renderStatus('Retrieving phab tickets...');
+    renderStatus('Getting Phab Tickets...');
     phabStandupContent.classList.remove('highlight');
 
     const profileUrl = `https://phab.splitmedialabs.com/p/${userName}`;
@@ -140,21 +139,19 @@ function init() {
           const htmlText = await data.text();
           const title = getTitle(htmlText);
           const ticketWithTitle = `${ticketNumber}: ${title}`;
+          geekbot += ticketWithTitle + '\n';
           tickets.push(ticketWithTitle);
           renderContent(tickets);
           phabStandupContent.scrollTop = phabStandupContent.scrollHeight - phabStandupContent.offsetHeight;
         }
       }
 
-      return renderStatus('Done retrieving...');
+      return renderStatus('Done...');
     }
 
-    renderStatus('Failed to fetch standup...');
-
+    renderStatus('Failed to get Phab Tickets...');
     geekbot = 'Error...';
-
     renderContent(geekbot);
-    return geekbot;
   }
 }
 
