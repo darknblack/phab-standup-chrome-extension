@@ -1,14 +1,14 @@
 {
   "manifest_version": 2,
-  "name": "Phab Standup",
+  "name": "Phabricator Standup",
   "version": "1.0.1",
-  "description": "Get your Phab tickets for standup in 1 click",
+  "description": "Get your Phabricator tickets for standup in 1 click",
   "author": "Ian Ishmael C. Oderon",
   "icons": {
-    "128": "standup.png"
+    "128": "logo.png"
   },
   "browser_action": {
-    "default_title": "Phab Standup"
+    "default_title": "Phabricator Standup"
   },
   "permissions": ["activeTab"],
   "background": {
@@ -16,7 +16,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.splitmedialabs.com/*"],
+      "matches": ["<all_urls>"],
       "js": ["content.js"],
       "css": ["style.css"]
     }
