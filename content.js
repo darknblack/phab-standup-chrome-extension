@@ -318,7 +318,7 @@ function getUserName() {
     console.error(e);
   }
 
-  const userIDFromLocalStorage = Cache.getSavedUsername;
+  const userIDFromLocalStorage = Cache.getSavedUsername();
   return userIDFromLocalStorage || '';
 }
 
