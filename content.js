@@ -1,5 +1,5 @@
 const FORCE_USERNAME = '';
-const ticketArr = [];
+let ticketArr = [];
 let isInit = false;
 let standupTickets = [];
 let assignedTickets = [];
@@ -163,6 +163,7 @@ async function getStandup(forceReload = false) {
   useSavedAssignedTickets = false;
   standupTickets = [];
   assignedTickets = [];
+  ticketArr = [];
   renderContent();
   renderStatus(forceReload ? STATUS.GETTING_NEW_PHAB_TICKETS : STATUS.GETTING_PHAB_TICKETS);
   phabStandupContent.classList.remove('highlight');
@@ -345,7 +346,7 @@ function setupHTML() {
 }
 
 if (window.location.hostname === 'phab.splitmedialabs.com') {
-  chrome.runtime.sendMessage({ newIconPath: 'logo-32.png', disabled: false });
+  chrome.runtime.sendMessage({ disabled: false });
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const psw = document.getElementById('phab-standup-wrapper');
 
@@ -365,5 +366,5 @@ if (window.location.hostname === 'phab.splitmedialabs.com') {
     }
   });
 } else {
-  chrome.runtime.sendMessage({ newIconPath: 'disabled-logo-32.png', disabled: true });
+  chrome.runtime.sendMessage({ disabled: true });
 }
