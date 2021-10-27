@@ -1,0 +1,18 @@
+{
+  "name": "phabricator-standup-chrome-extension",
+  "version": "1.0.0",
+  "description": "A simple chrome extension tool to get all of your recent Phabricator tickets based on your Phabricator profile.",
+  "scripts": {
+    "build": "git archive -o ./phabricator-standup-ext.zip head"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/darknblack/phab-standup-chrome-extension.git"
+  },
+  "author": "Ian Ishmael C. Oderon",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/darknblack/phab-standup-chrome-extension/issues"
+  },
+  "homepage": "https://github.com/darknblack/phab-standup-chrome-extension#readme"
+}
