@@ -12,12 +12,13 @@ let standupCount = 0;
 let assignedTasks = 0;
 let useSavedStandupTickets = false;
 let useSavedAssignedTickets = false;
-let isDeleteMode = false;
+let isHoldingDelKey = false;
 
 let phabStandupContent;
 let standupText;
 let hideBtn;
 let reloadBtn;
+let selectAllBtn;
 let psw;
 let resize;
 let resizeHorizontal;
@@ -100,6 +101,7 @@ function init() {
   resize = document.getElementById('resize');
   resizeHorizontal = document.getElementById('resize-horizontal');
   resizeVertical = document.getElementById('resize-vertical');
+  selectAllBtn = document.getElementById('copy-to-clipboard');
 
   getStandup();
 
@@ -119,6 +121,24 @@ function init() {
       getStandup(true);
     }
   });
+
+  selectAllBtn.addEventListener('click', () => {
+    const allTickets = [
+      ...profileTickets,
+      ...removedProfileTickets,
+      ...assignedTickets,
+      ...removedAssignedTickets,
+    ].reduce((acc, cur) => (acc += cur + '\n'), '');
+
+    if (allTickets) {
+      const textField = document.createElement('textarea');
+      textField.innerHTML = allTickets;
+      document.body.appendChild(textField);
+      textField.select();
+      document.execCommand('copy');
+      textField.remove();
+    }
+  });
 }
 
 function separateTicketAndTitle(ticketTitle) {
@@ -129,7 +149,7 @@ function separateTicketAndTitle(ticketTitle) {
 
 function addTicketDom(ticket, title, className, id) {
   return (
-    `<div class="content-row ${className}" id="${id}"><a href="https://phab.splitmedialabs.com/${ticket}"><b>` +
+    `<div class="ticket-row ${className}" id="${id}"><a href="https://phab.splitmedialabs.com/${ticket}" target="_blank"><b>` +
     ticket +
     ':</b></a>' +
     sanitizeHtml(title) +
@@ -144,58 +164,54 @@ function renderContent(profileTickets = [], assignedTasksObjects = [], isError =
   if (isError) {
     phabStandupContent.innerHTML = 'Error...';
   } else {
-    if (profileTickets.length > 0) {
+    if (profileTickets.length > 0 || removedProfileTickets.length > 0) {
       html += '<h2 style="margin-top: 0px">RECENT ACTIVITIES:</h2>';
     }
 
     profileTickets.forEach((item, index) => {
       const [ticket, title] = separateTicketAndTitle(item);
-      html += addTicketDom(ticket, title, 'content-row-delete', `delete_profile_ticket_${index}`);
+      html += addTicketDom(ticket, title, 'ticket-delete', `profile-ticket-${index}`);
     });
 
     if (removedProfileTickets.length > 0) {
       html += '<hr />';
       removedProfileTickets.forEach((item, index) => {
         const [ticket, title] = separateTicketAndTitle(item);
-        html += addTicketDom(ticket, title, 'content-row-add', `delete_profile_ticket_${index}`);
+        html += addTicketDom(ticket, title, 'ticket-add', `profile-ticket-${index}`);
       });
     }
 
-    if (assignedTasksObjects.length > 0) {
+    if (assignedTasksObjects.length > 0 || removedAssignedTickets.length > 0) {
       html += '<h2 style="margin-top: 10px">ASSIGNED TASKS:</h2>';
-      assignedTasksObjects.forEach((item, index) => {
-        const [ticket, title] = separateTicketAndTitle(item);
-        html += addTicketDom(ticket, title, 'content-row-delete', `delete_assigned_ticket${index}`);
-      });
+    }
 
-      if (removedAssignedTickets.length > 0) {
-        html += '<hr />';
-        removedAssignedTickets.forEach((item, index) => {
-          const [ticket, title] = separateTicketAndTitle(item);
-          html += addTicketDom(ticket, title, 'content-row-delete', `delete_assigned_ticket${index}`);
-        });
-      }
+    assignedTasksObjects.forEach((item, index) => {
+      const [ticket, title] = separateTicketAndTitle(item);
+      html += addTicketDom(ticket, title, 'ticket-delete', `assigned-ticket-${index}`);
+    });
+
+    if (removedAssignedTickets.length > 0) {
+      html += '<hr />';
+      removedAssignedTickets.forEach((item, index) => {
+        const [ticket, title] = separateTicketAndTitle(item);
+        html += addTicketDom(ticket, title, 'ticket-add', `assigned-ticket-${index}`);
+      });
     }
 
     phabStandupContent.innerHTML = html;
-    const rowsForDeleting = phabStandupContent.querySelectorAll('.content-row-delete');
-    for (let i = 0; i < rowsForDeleting.length; i++) {
-      const row = rowsForDeleting[i];
-      row.addEventListener('click', function (event) {
-        event.preventDefault();
-        if (isDeleteMode) {
-          deleteRow(row.id, row.innerText);
-        }
-      });
-    }
 
-    const rowsForAdding = phabStandupContent.querySelectorAll('.content-row-add');
-    for (let i = 0; i < rowsForAdding.length; i++) {
-      const row = rowsForAdding[i];
+    const contentChildren = phabStandupContent.querySelectorAll('.ticket-row');
+    for (let i = 0; i < contentChildren.length; i++) {
+      const row = contentChildren[i];
+      const isFordelete = row.className.includes('ticket-delete');
+
       row.addEventListener('click', function (event) {
-        event.preventDefault();
-        if (isDeleteMode) {
-          addRow(row.id, row.innerText);
+        if (isHoldingDelKey) {
+          if (isFordelete) {
+            deleteRow(row.id, row.innerText);
+          } else {
+            addRow(row.id, row.innerText);
+          }
         }
       });
     }
@@ -207,11 +223,11 @@ function renderStatus(string) {
 }
 
 function addRow(id, ticketTitle) {
-  const index = parseInt(id.replace('delete_profile_ticket_', '').replace('delete_assigned_ticket', ''));
-  if (id.startsWith('delete_profile_ticket_')) {
+  const index = parseInt(id.replace('profile-ticket-', '').replace('assigned-ticket-', ''));
+  if (id.startsWith('profile-ticket-')) {
     profileTickets.push(ticketTitle);
     removedProfileTickets.splice(index, 1);
-  } else if (id.startsWith('delete_assigned_ticket')) {
+  } else if (id.startsWith('assigned-ticket-')) {
     assignedTickets.push(ticketTitle);
     removedAssignedTickets.splice(index, 1);
   }
@@ -220,11 +236,11 @@ function addRow(id, ticketTitle) {
 }
 
 function deleteRow(id, ticketTitle) {
-  const index = parseInt(id.replace('delete_profile_ticket_', '').replace('delete_assigned_ticket', ''));
-  if (id.startsWith('delete_profile_ticket_')) {
+  const index = parseInt(id.replace('profile-ticket-', '').replace('assigned-ticket-', ''));
+  if (id.startsWith('profile-ticket-')) {
     profileTickets.splice(index, 1);
     removedProfileTickets.push(ticketTitle);
-  } else if (id.startsWith('delete_assigned_ticket')) {
+  } else if (id.startsWith('assigned-ticket-')) {
     assignedTickets.splice(index, 1);
     removedAssignedTickets.push(ticketTitle);
   }
@@ -243,7 +259,6 @@ async function getStandup(forceReload = false) {
   ticketArr = [];
   renderContent();
   renderStatus(forceReload ? STATUS.GETTING_NEW_PHAB_TICKETS : STATUS.GETTING_PHAB_TICKETS);
-  phabStandupContent.classList.remove('highlight');
 
   const homepageUrl = `https://phab.splitmedialabs.com/`;
   const hRes = await fetch(homepageUrl, { method: 'GET' });
@@ -415,13 +430,14 @@ function setupHTML() {
   const template = `
 <div id="phab-standup-wrapper">
 <div id="header-wrapper">
-  <h2><a href="https://github.com/darknblack/phab-standup-chrome-extension" target="_blank">PHABRICATOR STANDUP <span>v1.0.2</span></a></h2>
+  <h2><a href="https://github.com/darknblack/phab-standup-chrome-extension" target="_blank">PHABRICATOR STANDUP <span>v1.0.3</span></a></h2>
   <div id="status"></div>
 </div>
 <div id="content-wrapper">
   <div id="phab-standup-content"></div>
 </div>
 <div id="buttons-wrapper">
+  <div id="copy-to-clipboard">Copy all tasks to clipboard</div>
   <div id="reload">Reload</div>
   <div id="close">Close (F2)</div>
 </div>
@@ -459,16 +475,16 @@ if (window.location.hostname === 'phab.splitmedialabs.com') {
   document.addEventListener('keydown', function (event) {
     if (event.keyCode === 113) {
       toggleDisplayStandup();
-    } else if (isInit && (event.keyCode === 46 || event.keyCode === 192)) {
-      phabStandupContent.classList.add('delete-mode');
-      isDeleteMode = true;
+    } else if (isInit && isDoneFetching && (event.keyCode === 46 || event.keyCode === 192)) {
+      phabStandupContent.classList.add('add-delete');
+      isHoldingDelKey = true;
     }
   });
 
   document.addEventListener('keyup', function (event) {
-    if (isInit && (event.keyCode === 46 || event.keyCode === 192)) {
-      phabStandupContent.classList.remove('delete-mode');
-      isDeleteMode = false;
+    if (isInit && isDoneFetching && (event.keyCode === 46 || event.keyCode === 192)) {
+      phabStandupContent.classList.remove('add-delete');
+      isHoldingDelKey = false;
     }
   });
 } else {
