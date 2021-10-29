@@ -3,8 +3,9 @@ A simple chrome extension tool to get all of your recent Phabricator tickets bas
 Special thanks to Krizia Uayan for making the icons.
 
 Features:
-Display recent activity and assigned tickets.
-Add or remove from the list by holding the "`" or "del" button + left click to the ticket item.
+
+1. Display recent activity and assigned tickets.
+2. Add or remove from the list by holding the "`" or "del" button + left click to the ticket item.
 
 ![screenshot](screenshot.png)
 
