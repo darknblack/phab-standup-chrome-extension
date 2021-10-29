@@ -1,23 +1,28 @@
 const FORCE_USERNAME = '';
 let ticketArr = [];
 let isInit = false;
-let standupTickets = [];
+let profileTickets = [];
 let assignedTickets = [];
+let removedProfileTickets = [];
+let removedAssignedTickets = [];
 
-let isInitialFetched = false;
+let isInitialFetched = true;
 let isDoneFetching = false;
 let standupCount = 0;
 let assignedTasks = 0;
 let useSavedStandupTickets = false;
 let useSavedAssignedTickets = false;
+let isDeleteMode = false;
 
 let phabStandupContent;
 let standupText;
 let hideBtn;
 let reloadBtn;
 let psw;
-let selectAllBtn;
 let resize;
+let resizeHorizontal;
+let resizeVertical;
+let resizeDirection;
 let userName;
 
 function hashCode(string) {
@@ -36,7 +41,7 @@ function hashCode(string) {
 const Cache = {
   HOMEPAGE_HASH: 'homepage',
   PROFILE_HASH: 'profile',
-  STANDUP_TICKETS: 'standup-tickets',
+  PROFILE_TICKETS: 'profile-tickets',
   ASSIGNED_TICKETS: 'assigned-tickets',
   getSavedUsername() {
     const ls = this.getLocalStorage();
@@ -76,14 +81,11 @@ const Cache = {
 };
 
 const STATUS = {
-  GETTING_PHAB_TICKETS: 'Getting Phabricator tickets...',
-  GETTING_NEW_PHAB_TICKETS: 'Getting new Phabricator tickets...',
+  GETTING_PHAB_TICKETS: 'Getting tickets...',
+  GETTING_NEW_PHAB_TICKETS: 'Getting latest tickets...',
   FAILED_TO_LOAD: 'Failed to get Phabricator tickets...',
-  DONE_LOADING: 'Done getting Phabricator tickets...',
-  CACHE_LOADED: 'Displaying cached Phabricator tickets...',
+  DONE_LOADING: 'Displaying latest tickets...',
 };
-
-const h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
 
 function init() {
   userName = FORCE_USERNAME || getUserName();
@@ -95,61 +97,105 @@ function init() {
   hideBtn = document.getElementById('close');
   reloadBtn = document.getElementById('reload');
   psw = document.getElementById('phab-standup-wrapper');
-  selectAllBtn = document.getElementById('copy-to-clipboard');
   resize = document.getElementById('resize');
+  resizeHorizontal = document.getElementById('resize-horizontal');
+  resizeVertical = document.getElementById('resize-vertical');
 
   getStandup();
 
-  resize.addEventListener('mousedown', initResize, false);
+  resize.addEventListener('mousedown', initResize('hv'), false);
+  resizeHorizontal.addEventListener('mousedown', initResize('h'), false);
+  resizeVertical.addEventListener('mousedown', initResize('v'), false);
 
-  hideBtn.addEventListener('click', () => {
+  hideBtn.addEventListener('click', e => {
+    e.preventDefault();
     psw.style.display = 'none';
     isInit = false;
   });
 
-  reloadBtn.addEventListener('click', () => {
+  reloadBtn.addEventListener('click', e => {
+    e.preventDefault();
     if (isDoneFetching) {
       getStandup(true);
     }
   });
-
-  selectAllBtn.addEventListener('click', () => {
-    const isHighlighted = phabStandupContent.className.includes('highlight');
-    if (!isHighlighted) {
-      const textField = document.createElement('textarea');
-      textField.innerHTML = [...standupTickets, ...assignedTickets].reduce((acc, cur) => (acc += cur + '\n'), '');
-      phabStandupContent.classList.add('highlight');
-      document.body.appendChild(textField);
-      textField.select();
-      document.execCommand('copy');
-      textField.remove();
-    } else {
-      phabStandupContent.classList.remove('highlight');
-    }
-  });
 }
 
-function renderContent(standupTickets = [], assignedTasksObjects = [], isError = false) {
+function separateTicketAndTitle(ticketTitle) {
+  const ticket = ticketTitle.substring(ticketTitle.indexOf('T'), ticketTitle.indexOf(':'));
+  const title = ticketTitle.replace(ticket + ':', '');
+  return [ticket, title];
+}
+
+function addTicketDom(ticket, title, className, id) {
+  return (
+    `<div class="content-row ${className}" id="${id}"><a href="https://phab.splitmedialabs.com/${ticket}"><b>` +
+    ticket +
+    ':</b></a>' +
+    sanitizeHtml(title) +
+    '</div>'
+  );
+}
+
+function renderContent(profileTickets = [], assignedTasksObjects = [], isError = false) {
+  let html = '';
+  phabStandupContent.innerHTML = '';
+
   if (isError) {
     phabStandupContent.innerHTML = 'Error...';
-  } else if (standupTickets.length === 0) {
-    phabStandupContent.innerHTML = '';
   } else {
-    let html = '';
-    standupTickets.forEach(item => {
-      const [ticket, title] = item.split(':');
-      html += '<b>' + ticket + ':</b>' + title + '<br />';
+    html += '<h2 style="margin-top: 0px">RECENT ACTIVITIES:</h2>';
+    profileTickets.forEach((item, index) => {
+      const [ticket, title] = separateTicketAndTitle(item);
+      html += addTicketDom(ticket, title, 'content-row-delete', `delete_profile_ticket_${index}`);
     });
 
-    if (assignedTasksObjects.length > 0) {
-      html += '<h2 style="margin-top: 7px">ASSIGNED TASKS:</h2>';
-      assignedTasksObjects.forEach(item => {
-        const [ticket, title] = item.split(':');
-        html += '<b>' + ticket + ':</b>' + title + '<br />';
+    if (removedProfileTickets.length > 0) {
+      html += '<hr />';
+      removedProfileTickets.forEach((item, index) => {
+        const [ticket, title] = separateTicketAndTitle(item);
+        html += addTicketDom(ticket, title, 'content-row-add', `delete_profile_ticket_${index}`);
       });
     }
 
+    if (assignedTasksObjects.length > 0) {
+      html += '<h2 style="margin-top: 10px">ASSIGNED TASKS:</h2>';
+      assignedTasksObjects.forEach((item, index) => {
+        const [ticket, title] = separateTicketAndTitle(item);
+        html += addTicketDom(ticket, title, 'content-row-delete', `delete_assigned_ticket${index}`);
+      });
+
+      if (removedAssignedTickets.length > 0) {
+        html += '<hr />';
+        removedAssignedTickets.forEach((item, index) => {
+          const [ticket, title] = separateTicketAndTitle(item);
+          html += addTicketDom(ticket, title, 'content-row-delete', `delete_assigned_ticket${index}`);
+        });
+      }
+    }
+
     phabStandupContent.innerHTML = html;
+    const rowsForDeleting = phabStandupContent.querySelectorAll('.content-row-delete');
+    for (let i = 0; i < rowsForDeleting.length; i++) {
+      const row = rowsForDeleting[i];
+      row.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (isDeleteMode) {
+          deleteRow(row.id, row.innerText);
+        }
+      });
+    }
+
+    const rowsForAdding = phabStandupContent.querySelectorAll('.content-row-add');
+    for (let i = 0; i < rowsForAdding.length; i++) {
+      const row = rowsForAdding[i];
+      row.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (isDeleteMode) {
+          addRow(row.id, row.innerText);
+        }
+      });
+    }
   }
 }
 
@@ -157,22 +203,50 @@ function renderStatus(string) {
   standupText.innerHTML = string;
 }
 
+function addRow(id, ticketTitle) {
+  const index = parseInt(id.replace('delete_profile_ticket_', '').replace('delete_assigned_ticket', ''));
+  if (id.startsWith('delete_profile_ticket_')) {
+    profileTickets.push(ticketTitle);
+    removedProfileTickets.splice(index, 1);
+  } else if (id.startsWith('delete_assigned_ticket')) {
+    assignedTickets.push(ticketTitle);
+    removedAssignedTickets.splice(index, 1);
+  }
+
+  renderContent(profileTickets, assignedTickets);
+}
+
+function deleteRow(id, ticketTitle) {
+  const index = parseInt(id.replace('delete_profile_ticket_', '').replace('delete_assigned_ticket', ''));
+  if (id.startsWith('delete_profile_ticket_')) {
+    profileTickets.splice(index, 1);
+    removedProfileTickets.push(ticketTitle);
+  } else if (id.startsWith('delete_assigned_ticket')) {
+    assignedTickets.splice(index, 1);
+    removedAssignedTickets.push(ticketTitle);
+  }
+
+  renderContent(profileTickets, assignedTickets);
+}
+
 async function getStandup(forceReload = false) {
   isDoneFetching = false;
   useSavedStandupTickets = false;
   useSavedAssignedTickets = false;
-  standupTickets = [];
+  profileTickets = [];
   assignedTickets = [];
+  removedAssignedTickets = [];
+  removedProfileTickets = [];
   ticketArr = [];
   renderContent();
   renderStatus(forceReload ? STATUS.GETTING_NEW_PHAB_TICKETS : STATUS.GETTING_PHAB_TICKETS);
   phabStandupContent.classList.remove('highlight');
 
   const homepageUrl = `https://phab.splitmedialabs.com/`;
-  const hRes = await fetch(homepageUrl, { method: 'GET', mode: 'no-cors' });
+  const hRes = await fetch(homepageUrl, { method: 'GET' });
 
   const profileUrl = `https://phab.splitmedialabs.com/p/${userName}`;
-  const pRes = await fetch(profileUrl, { method: 'GET', mode: 'no-cors' });
+  const pRes = await fetch(profileUrl, { method: 'GET' });
 
   if (hRes.status === 200 && pRes.status === 200) {
     const hHtmlText = await hRes.text();
@@ -190,7 +264,7 @@ async function getStandup(forceReload = false) {
     );
 
     if (getProfileContentHash === pHtmlTextHash && !forceReload) {
-      standupTickets = Cache.getSavedTickets(Cache.STANDUP_TICKETS);
+      profileTickets = Cache.getSavedTickets(Cache.PROFILE_TICKETS);
       useSavedStandupTickets = true;
     }
 
@@ -202,8 +276,8 @@ async function getStandup(forceReload = false) {
     Cache.saveHTMLTextHash(Cache.HOMEPAGE_HASH, hHtmlTextHash);
     Cache.saveHTMLTextHash(Cache.PROFILE_HASH, pHtmlTextHash);
 
-    if (standupTickets.length > 0) {
-      renderContent(standupTickets);
+    if (profileTickets.length > 0) {
+      renderContent(profileTickets);
     } else {
       // Get all tickets from /p/{username}
       for (let i = 0; i < ticketrows.length; i++) {
@@ -226,14 +300,14 @@ async function getStandup(forceReload = false) {
           const htmlText = await data.text();
           const title = getTitle(htmlText);
           const ticketWithTitle = `${ticket}: ${title}`;
-          standupTickets.push(ticketWithTitle);
-          renderContent(standupTickets);
+          profileTickets.push(ticketWithTitle);
+          renderContent(profileTickets);
         }
       }
     }
 
     if (assignedTickets.length > 0) {
-      renderContent(standupTickets, assignedTickets);
+      renderContent(profileTickets, assignedTickets);
     } else {
       // Get all assigned tasks from phab.splitmedialabs.com/
       for (let i = 0; i < homepageTicketRows.length; i++) {
@@ -242,12 +316,12 @@ async function getStandup(forceReload = false) {
         const title = item.querySelector('.phui-oi-name .phui-oi-link').innerText;
         const ticketWithTitle = `${ticketNumber}: ${title}`;
         assignedTickets.push(ticketWithTitle);
-        renderContent(standupTickets, assignedTickets);
+        renderContent(profileTickets, assignedTickets);
       }
     }
 
-    renderStatus(useSavedStandupTickets && useSavedAssignedTickets ? STATUS.CACHE_LOADED : STATUS.DONE_LOADING);
-    Cache.saveTickets(Cache.STANDUP_TICKETS, standupTickets);
+    renderStatus(STATUS.DONE_LOADING);
+    Cache.saveTickets(Cache.PROFILE_TICKETS, profileTickets);
     Cache.saveTickets(Cache.ASSIGNED_TICKETS, assignedTickets);
     isDoneFetching = true;
     return;
@@ -255,12 +329,14 @@ async function getStandup(forceReload = false) {
 
   isDoneFetching = true;
   renderStatus('Failed to get Phabricator Tickets...');
-  renderContent(standupTickets, assignedTickets, true);
+  renderContent(profileTickets, assignedTickets, true);
 }
 
-function initResize(e) {
-  window.addEventListener('mousemove', doResize, false);
-  window.addEventListener('mouseup', stopResize, false);
+function sanitizeHtml(s) {
+  const el = document.createElement('div');
+  el.innerText = s;
+  el.textContent = s;
+  return el.innerHTML;
 }
 
 function doResize(e) {
@@ -269,11 +345,11 @@ function doResize(e) {
   const newWidth = psw.offsetLeft - e.clientX + psw.offsetWidth;
   const newHeight = e.clientY - psw.offsetTop;
 
-  if (e.clientX >= 5) {
+  if (resizeDirection.includes('h')) {
     psw.style.width = newWidth + 'px';
   }
 
-  if (h - 10 >= newHeight) {
+  if (resizeDirection.includes('v')) {
     psw.style.height = newHeight + 'px';
   }
 }
@@ -281,6 +357,15 @@ function doResize(e) {
 function stopResize(e) {
   window.removeEventListener('mousemove', doResize, false);
   window.removeEventListener('mouseup', stopResize, false);
+}
+
+function initResize(direction) {
+  return e => {
+    resizeDirection = direction;
+    e.preventDefault();
+    window.addEventListener('mousemove', doResize, false);
+    window.addEventListener('mouseup', stopResize, false);
+  };
 }
 
 function getHomepageTasks(htmlString) {
@@ -327,17 +412,18 @@ function setupHTML() {
   const template = `
 <div id="phab-standup-wrapper">
 <div id="header-wrapper">
-  <h2>STANDUP</h2>
+  <h2><a href="https://github.com/darknblack/phab-standup-chrome-extension" target="_blank">PHABRICATOR STANDUP</a></h2>
   <div id="status"></div>
 </div>
 <div id="content-wrapper">
   <div id="phab-standup-content"></div>
 </div>
 <div id="buttons-wrapper">
-  <div id="copy-to-clipboard">Copy to clipboard</div>
   <div id="reload">Reload</div>
-  <div id="close">Close</div>
+  <div id="close">Close (F2)</div>
 </div>
+<div id="resize-horizontal"></div>
+<div id="resize-vertical"></div>
 <div id="resize"></div>
 </div>
 `;
@@ -345,24 +431,41 @@ function setupHTML() {
   document.body.prepend(html);
 }
 
+function toggleDisplayStandup() {
+  if (!isInit && isInitialFetched) {
+    isInit = true;
+    isInitialFetched = false;
+    init();
+  } else if (!isInit && !isInitialFetched && psw) {
+    psw.style.display = 'flex';
+    isInit = true;
+  } else if (psw) {
+    psw.style.display = 'none';
+    isInit = false;
+  }
+}
+
 if (window.location.hostname === 'phab.splitmedialabs.com') {
   chrome.runtime.sendMessage({ disabled: false });
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const psw = document.getElementById('phab-standup-wrapper');
+    if (request.action === 'GET-STANDUP') {
+      toggleDisplayStandup();
+    }
+  });
 
-    if (request.action === 'TAB-CHANGE') {
-    } else if (request.action === 'GET-STANDUP') {
-      if (!isInit && !isInitialFetched) {
-        isInit = true;
-        isInitialFetched = true;
-        init();
-      } else if (!isInit && isInitialFetched) {
-        psw.style.display = 'flex';
-        isInit = true;
-      } else {
-        psw.style.display = 'none';
-        isInit = false;
-      }
+  document.addEventListener('keydown', function (event) {
+    if (event.keyCode === 113) {
+      toggleDisplayStandup();
+    } else if (isInit && (event.keyCode === 46 || event.keyCode === 192)) {
+      phabStandupContent.classList.add('delete-mode');
+      isDeleteMode = true;
+    }
+  });
+
+  document.addEventListener('keyup', function (event) {
+    if (isInit && (event.keyCode === 46 || event.keyCode === 192)) {
+      phabStandupContent.classList.remove('delete-mode');
+      isDeleteMode = false;
     }
   });
 } else {
