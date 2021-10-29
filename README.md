@@ -5,7 +5,7 @@ Special thanks to Krizia Uayan for making the icons.
 Features:
 
 1. Display recent activity and assigned tickets.
-2. Add or remove from the list by holding the **`** or **del** key + left click to the ticket item.
+2. Add or remove from the list by holding the **`** or **del** key + left click on the ticket item.
 
 ![screenshot](screenshot.png)
 
