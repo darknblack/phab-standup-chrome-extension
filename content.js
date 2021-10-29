@@ -144,7 +144,10 @@ function renderContent(profileTickets = [], assignedTasksObjects = [], isError =
   if (isError) {
     phabStandupContent.innerHTML = 'Error...';
   } else {
-    html += '<h2 style="margin-top: 0px">RECENT ACTIVITIES:</h2>';
+    if (profileTickets.length > 0) {
+      html += '<h2 style="margin-top: 0px">RECENT ACTIVITIES:</h2>';
+    }
+
     profileTickets.forEach((item, index) => {
       const [ticket, title] = separateTicketAndTitle(item);
       html += addTicketDom(ticket, title, 'content-row-delete', `delete_profile_ticket_${index}`);
