@@ -412,7 +412,7 @@ function setupHTML() {
   const template = `
 <div id="phab-standup-wrapper">
 <div id="header-wrapper">
-  <h2><a href="https://github.com/darknblack/phab-standup-chrome-extension" target="_blank">PHABRICATOR STANDUP</a></h2>
+  <h2><a href="https://github.com/darknblack/phab-standup-chrome-extension" target="_blank">PHABRICATOR STANDUP <span>v1.0.2</span></a></h2>
   <div id="status"></div>
 </div>
 <div id="content-wrapper">

@@ -82,6 +82,10 @@
   padding-bottom: 10px;
 }
 
+#header-wrapper span {
+  font-size: 12px;
+}
+
 #header-wrapper a {
   color: inherit;
   text-decoration: none;
